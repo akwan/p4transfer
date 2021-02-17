@@ -185,7 +185,10 @@ DEFAULT_CONFIG = OrderedDict({
         ("p4client", ""),
         ("# P4PASSWD for the user - valid password. If blank then no login performed.", None),
         ("# Recommended to make sure user is in a group with a long password timeout!.", None),
-        ("p4passwd", "")]),
+        ("p4passwd", ""),
+        ("# P4CHARSET to use, e.g. none, utf8, etc", None),
+        ("p4charset", ""),
+        ]),
     TARGET_SECTION: OrderedDict([
         ("# P4PORT to connect to, e.g. some-server:1666", None),
         ("p4port", ""),
@@ -195,7 +198,10 @@ DEFAULT_CONFIG = OrderedDict({
         ("p4client", ""),
         ("# P4PASSWD for the user - valid password. If blank then no login performed.", None),
         ("# Recommended to make sure user is in a group with a long password timeout!.", None),
-        ("p4passwd", "")]),
+        ("p4passwd", ""),
+        ("# P4CHARSET to use, e.g. none, utf8, etc", None),
+        ("p4charset", ""),
+        ]),
     })
 
 class SourceTargetTextComparison(object):
@@ -590,6 +596,7 @@ class P4Base(object):
 
     section = None
     P4PORT = None
+    P4CHARSET = None
     P4CLIENT = None
     P4USER = None
     P4PASSWD = None
@@ -605,12 +612,13 @@ class P4Base(object):
         self.client_logged = 0
 
     def __str__(self):
-        return '[section = {} P4PORT = {} P4CLIENT = {} P4USER = {} P4PASSWD = {}]'.format( \
+        return '[section = {} P4PORT = {} P4CLIENT = {} P4USER = {} P4PASSWD = {} P4CHARSET = {}]'.format( \
             self.section,
             self.P4PORT,
             self.P4CLIENT,
             self.P4USER,
             self.P4PASSWD,
+            self.P4CHARSET,
             )
 
     def connect(self, progname):
@@ -619,6 +627,7 @@ class P4Base(object):
         self.p4.client = self.P4CLIENT
         self.p4.user = self.P4USER
         self.p4.prog = progname
+        self.p4.charset = self.P4CHARSET
         self.p4.exception_level = P4.P4.RAISE_ERROR
         self.p4.connect()
         if not self.P4PASSWD == None:
@@ -1529,6 +1538,7 @@ class P4Transfer(object):
         self.readOption('P4USER', p4config)
         self.readOption('P4PORT', p4config)
         self.readOption('P4PASSWD', p4config, optional=True)
+        self.readOption('P4CHARSET', p4config, optional=True)
 
     def readOption(self, option, p4config, optional=False):
         if self.parser.has_option(p4config.section, option):
