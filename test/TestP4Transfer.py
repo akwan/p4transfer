@@ -114,6 +114,7 @@ class P4Server:
         client._root = self.client_root
         client._lineend = 'unix'
         self.p4.save_client(client)
+        self.enableUnicode()
 
     def shutDown(self):
         if self.p4.connected():
@@ -190,24 +191,46 @@ class TestP4Transfer(unittest.TestCase):
         self.transfer_client_root = localDirectory(self.transfer_root, 'transfer_client')
         self.writeP4Config()
 
-    def writeP4Config(self):
+    def writeP4Config(self, srcOptions={}, targOptions={}):
         "Write appropriate files - useful for occasional manual debugging"
         p4config_filename = getP4ConfigFilename()
         srcP4Config = os.path.join(self.transfer_root, 'source', p4config_filename)
         targP4Config = os.path.join(self.transfer_root, 'target', p4config_filename)
         transferP4Config = os.path.join(self.transfer_client_root, p4config_filename)
+
+        if srcOptions is None:
+            srcOptions = {}
+        if targOptions is None:
+            targOptions = {}
+
+
+        for opt in srcOptions.keys():
+            config['source'][opt] = srcOptions[opt]
+
+        for opt in targOptions.keys():
+            config['target'][opt] = targOptions[opt]
+
         with open(srcP4Config, "w") as fh:
             fh.write('P4PORT=%s\n' % self.source.port)
             fh.write('P4USER=%s\n' % self.source.p4.user)
             fh.write('P4CLIENT=%s\n' % self.source.p4.client)
+            fh.write('P4CHARSET=%s\n' % 'utf8')
+            # if 'p4charset' in srcOptions:
+            #     fh.write('P4CHARSET=%s\n' % srcOptions['p4charset'])
         with open(targP4Config, "w") as fh:
             fh.write('P4PORT=%s\n' % self.target.port)
             fh.write('P4USER=%s\n' % self.target.p4.user)
             fh.write('P4CLIENT=%s\n' % self.target.p4.client)
+            fh.write('P4CHARSET=%s\n' % 'utf8')
+            # if 'p4charset' in targOptions:
+            #     fh.write('P4CHARSET=%s\n' % targOptions['p4charset'])
         with open(transferP4Config, "w") as fh:
             fh.write('P4PORT=%s\n' % self.target.port)
             fh.write('P4USER=%s\n' % self.target.p4.user)
             fh.write('P4CLIENT=%s\n' % TRANSFER_CLIENT)
+            fh.write('P4CHARSET=%s\n' % 'utf8')
+            # if 'p4charset' in targOptions:
+            #     fh.write('P4CHARSET=%s\n' % targOptions['p4charset'])
 
     def cleanupTestTree(self):
         os.chdir(self.startdir)
@@ -3487,6 +3510,34 @@ class TestP4Transfer(unittest.TestCase):
         self.assertEqual(len(files), 2, "Target does not have exactly two files")
 
         self.assertCounters(4, 4)
+
+    def testAddCharsetNone(self):
+        "Testing an Add with Charset=None"
+
+        # Create custom P4 config file
+        options = self.getDefaultOptions()
+        options["p4charset"] = "utf8"
+        self.setupTransfer()
+        self.createConfigFile(options=options, srcOptions=options, targOptions=options)
+
+        inside = localDirectory(self.source.client_root, "inside")
+        inside_file1 = os.path.join(inside, "inside_file1")
+        create_file(inside_file1, 'Test content')
+
+        self.source.p4cmd('add', inside_file1)
+        self.source.p4cmd('submit', '-d', 'inside_file1 added')
+
+        self.run_P4Transfer()
+
+        changes = self.target.p4cmd('changes')
+        self.assertEqual(len(changes), 1, "Target does not have exactly one change")
+        self.assertEqual(changes[0]['change'], "1")
+
+        files = self.target.p4cmd('files', '//depot/...')
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0]['depotFile'], '//depot/import/inside_file1')
+
+        self.assertCounters(1, 1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
